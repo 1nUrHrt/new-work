@@ -1,0 +1,96 @@
+{
+	"name": "attn-gin-ddi",
+	"save_dir": "./checkpoints",
+	"best_save_name": "best.pt",
+	"current_save_name": "current.pt",
+	"result_dict_name": "result_dict.csv",
+	"test_dict_name": "test_dict.csv",
+	"epochs": 200,
+	"metric": "f1_score",
+	"metric_average": "weighted",
+	"manual_seed": 42,
+	"dataset": {
+		"base_dir": "./data/split_data"
+	},
+	"data_loader": {
+		"train_set": {
+			"batch_size": 2048,
+			"shuffle": false,
+			"num_workers": 2
+		},
+		"train_itc": {
+			"batch_size": 20480,
+			"shuffle": true,
+			"num_workers": 2
+		},
+		"val_set": {
+			"batch_size": 2048,
+			"shuffle": false,
+			"num_workers": 2
+		},
+		"val_itc": {
+			"batch_size": 20480,
+			"shuffle": false,
+			"num_workers": 2
+		},
+		"test_set": {
+			"batch_size": 2048,
+			"shuffle": false,
+			"num_workers": 2
+		},
+		"test_itc": {
+			"batch_size": 20480,
+			"shuffle": false,
+			"num_workers": 2
+		}
+	},
+	"encoder": {
+		"type": "AttnEncoder",
+		"params": {
+			"node_dim": 39,
+			"edge_dim": 10,
+			"h_dim": 128,
+			"block_num": 5,
+			"dp_r": 0.1,
+			"heads": 8
+		}
+	},
+	"classifier": {
+		"type": "DefaultClassifier",
+		"params": {
+			"in_feature": 128,
+			"out_feature": 86,
+			"dp_r": 0.1
+		}
+	},
+	"optimizer": {
+		"type": "Adam",
+		"params": {
+			"lr": 0.001,
+			"weight_decay": 1e-5
+		}
+	},
+	"criterion": {
+		"type": "CrossEntropyLoss",
+		"params": {
+			"label_smoothing": 0.1
+		}
+	},
+	"scheduler": {
+		"type": "ReduceLROnPlateau",
+		"params": {
+			"mode": "max",
+			"factor": 0.5,
+			"patience": 5,
+			"min_lr": 1e-6
+		}
+	},
+	"early_stop": {
+		"type": "DefaultEarlyStop",
+		"params": {
+			"mode": "max",
+			"patience": 10,
+			"min_delta": 0.001
+		}
+	}
+}

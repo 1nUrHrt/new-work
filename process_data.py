@@ -1,5 +1,6 @@
 import os.path
 import logging
+from typing import Literal
 import pandas as pd
 from torch.utils.data import Dataset
 from sklearn.model_selection import train_test_split
@@ -7,10 +8,6 @@ import torch
 from rdkit import Chem
 from rdkit.Chem import Descriptors
 from torch_geometric.data import Data, Batch
-# from rdkit import RDLogger
-
-# RDLogger.DisableLog("rdApp.warning")
-
 import time
 
 
@@ -22,6 +19,7 @@ class Timer:
     def __exit__(self, *args):
         self.end = time.perf_counter()
         self.elapsed = self.end - self.start
+
 
 class DrugDataset(Dataset):
     def __init__(self, df: pd.DataFrame, mask=None, add_global_features=False):
@@ -82,55 +80,59 @@ class InteractionDataset(Dataset):
     def label(self):
         return self.itc["label"]
 
-    def itc_collate_fn(self, batch):
-        drug1 = []
-        drug2 = []
-        label = []
-        for data in batch:
-            drug1.append(data[0])
-            drug2.append(data[1])
-            label.append(data[2])
-        return torch.tensor(drug1), torch.tensor(drug2), torch.tensor(label)
 
-
-def load_train_data(
-    data_dir: str = "./data/split-data",
-    train_size: float = 0.8,
+def load_data(
+    data_source: Literal["drugbank", "twosides"] = "drugbank",
+    split_type: Literal["random", "cluster"] = "random",
+    train_size: float | None = None,
     seed=42,
-    scenario=False,
 ):
-    all_drug = pd.read_csv(os.path.join(data_dir, "drug.csv"))
-    itc = pd.read_csv(os.path.join(data_dir, "train.csv"))
-    train_drug = (
+    base_dir = os.path.join("./data", data_source + "-" + split_type)
+    all_drug = pd.read_csv(os.path.join(base_dir, "drug.csv"))
+    itc = pd.read_csv(os.path.join(base_dir, "train.csv"))
+    sub_drug = (
         pd.concat([itc["drug1"], itc["drug2"]])
         .drop_duplicates(keep="first")
         .reset_index(drop=True)
     )
-    train_drug_map = {key: i for i, key in enumerate(train_drug)}
-    itc["drug1"] = itc["drug1"].map(train_drug_map)
-    itc["drug2"] = itc["drug2"].map(train_drug_map)
+    sub_drug_map = {key: i for i, key in enumerate(sub_drug)}
+    itc["drug1"] = itc["drug1"].map(sub_drug_map)
+    itc["drug2"] = itc["drug2"].map(sub_drug_map)
+
+    mask = [True if i in sub_drug else False for i in range(len(all_drug))]
+
+    all_drug_set = DrugDataset(all_drug, mask=mask)
+    sub_drug_set = SubDrugDataset(sub_drug, all_drug_set)
+
+    if train_size is None:
+        return (sub_drug_set, InteractionDataset(itc))
 
     train_itc, valid_itc = train_test_split(
         itc, train_size=train_size, random_state=seed, stratify=itc["Y"]
     )
 
-    mask = [True if i in train_drug else False for i in range(len(all_drug))]
+    return (sub_drug_set, InteractionDataset(train_itc), InteractionDataset(valid_itc))
 
-    all_drug_set = DrugDataset(all_drug, mask=mask)
-    train_drug_set = SubDrugDataset(train_drug, all_drug_set)
 
-    return train_drug_set, InteractionDataset(train_itc), InteractionDataset(valid_itc)
 
 
 def split_data(
-    inuput_file="./data/drugbank.tab",
-    save_dir="./data/split-data",
+    data_source: Literal["drugbank", "twosides"] = "drugbank",
+    split_type: Literal["random", "cluster"] = "random",
     train_size=0.8,
     seed=42,
-    random=True,
 ):
+    save_dir = os.path.join("./data", data_source + "-" + split_type)
+    os.makedirs(save_dir, exist_ok=True)
+    if data_source == "drugbank":
+        if split_type == "random":
+            split_drugbank_random(
+                pd.read_csv("./data/drugbank.tab", sep="\t"), train_size, seed, save_dir
+            )
+
+
+def split_drugbank_random(df, train_size, seed, save_dir):
     logger = logging.getLogger("DataSplit")
-    df = pd.read_csv(inuput_file, sep="\t")
     drug1 = df[["ID1", "X1"]].drop_duplicates(keep="first")
     drug2 = df[["ID2", "X2"]].drop_duplicates(keep="first")
     columns = ["id", "smile"]
@@ -326,3 +328,18 @@ def smiles_to_graph(smiles, add_global_features):
 
 def drug_collate_fn(batch):
     return Batch.from_data_list(batch)
+
+
+def itc_collate_fn(batch):
+    drug1 = []
+    drug2 = []
+    label = []
+    for data in batch:
+        drug1.append(data[0])
+        drug2.append(data[1])
+        label.append(data[2])
+    return torch.tensor(drug1), torch.tensor(drug2), torch.tensor(label)
+
+
+if __name__ == "__main__":
+    split_data()

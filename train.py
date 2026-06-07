@@ -13,7 +13,6 @@ from model import EarlyStop, AttnEncoder, AttnResEncoder, Classifier
 from typing import Literal
 import config
 import logging
-import logger_config
 
 logger = logging.getLogger("train")
 
@@ -170,8 +169,8 @@ def train(
 
     base_dir = os.path.join("./checkpoints", name)
     os.makedirs(base_dir, exist_ok=True)
-    best_save_path = os.path.join(base_dir, "best.pt")
-    history_save_path = os.path.join(base_dir, "history.pt")
+    best_path = os.path.join(base_dir, "best.pt")
+    history_path = os.path.join(base_dir, "history.pt")
     result_path = os.path.join(base_dir, "result.csv")
 
     datasets = load_data(data_source, split_type, train_size, seed)
@@ -323,17 +322,10 @@ def train(
             torch.save(
                 {
                     "epoch": current_epoch,
-                    "metric_average": metric_average,
-                    "best_val": {
-                        "loss": val_loss,
-                        "acc": val_acc,
-                        "f1_score": val_f1_score,
-                        "auc": val_auc,
-                    },
                     "encoder": encoder.state_dict(),
                     "classifier": classifier.state_dict(),
                 },
-                best_save_path,
+                best_path,
             )
             print(
                 f"[Save Model] [Epoch:{current_epoch}/{epochs}] save best Model successfully"
@@ -356,7 +348,7 @@ def train(
             "train_itc_generator": train_itc_generator.get_state(),
         }
 
-        torch.save(checkpoint, history_save_path)
+        torch.save(checkpoint, history_path)
         print(
             f"[Save Checkpoint] [Epoch:{current_epoch}/{epochs}] save current checkpoint successfully"
         )
@@ -403,3 +395,6 @@ def run_training(
     cfg["data_source"] = data_source
     cfg["split_type"] = split_type
     train(**cfg)
+
+
+__all__ = ["resume_training", "run_training"]

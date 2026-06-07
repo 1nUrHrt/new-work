@@ -114,8 +114,6 @@ def load_data(
     return (sub_drug_set, InteractionDataset(train_itc), InteractionDataset(valid_itc))
 
 
-
-
 def split_data(
     data_source: Literal["drugbank", "twosides"] = "drugbank",
     split_type: Literal["random", "cluster"] = "random",
@@ -341,5 +339,4 @@ def itc_collate_fn(batch):
     return torch.tensor(drug1), torch.tensor(drug2), torch.tensor(label)
 
 
-if __name__ == "__main__":
-    split_data()
+__all__ = ["Timer", "load_data", "split_data", "drug_collate_fn", "itc_collate_fn"]

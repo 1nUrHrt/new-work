@@ -17,7 +17,6 @@ class default(Config):
     data_source: Literal["drugbank", "twosides"] = "drugbank"
     split_type: Literal["random", "cluster"] = "random"
 
-
     epochs: int = 200
     node_dim = 39
     edge_dim = 10
@@ -35,5 +34,3 @@ class default(Config):
     num_workers = 2
     label_smoothing = 0.1
     min_delta = 0.001
-
-

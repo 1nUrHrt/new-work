@@ -9,6 +9,8 @@ if __name__ == "__main__":
     # 转换为 numpy 数组
     cm = cm_df.values
 
+    cm = cm.astype('float') / cm.sum(axis=1, keepdims=True)
+
     # 绘图
     plt.figure(figsize=(20, 18))
     plt.imshow(cm, cmap='Blues', aspect='auto', interpolation='nearest')

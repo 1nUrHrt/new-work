@@ -16,27 +16,23 @@ def main():
     p_train.add_argument("name", help="Config name in config.py (e.g. default)")
     p_train.add_argument(
         "--encoder",
-        default="AttnEncoder",
         choices=["AttnEncoder", "AttnResEncoder"],
         help="Encoder type (default: AttnEncoder)",
     )
     p_train.add_argument(
         "--metric-average",
-        default="macro",
         choices=["macro", "weighted", "micro"],
         dest="metric_average",
         help="Metric averaging strategy (default: macro)",
     )
     p_train.add_argument(
         "--data-source",
-        default="drugbank",
         choices=["drugbank", "twosides"],
         dest="data_source",
         help="Data source (default: drugbank)",
     )
     p_train.add_argument(
         "--split-type",
-        default="random",
         choices=["random", "cluster"],
         dest="split_type",
         help="Split strategy (default: random)",

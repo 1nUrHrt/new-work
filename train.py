@@ -3,7 +3,7 @@ import random
 import pandas as pd
 from sklearn.metrics import accuracy_score, f1_score, roc_auc_score, confusion_matrix
 from torch.optim import Adam
-from torch.optim.lr_scheduler import ReduceLROnPlateau
+from torch.optim.lr_scheduler import ReduceLROnPlateau,CosineAnnealingLR
 from torch.nn import CrossEntropyLoss
 import numpy as np
 import torch
@@ -158,7 +158,6 @@ def train(
     min_delta,
     history=None,
 ):
-
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
     start_epoch = 0
@@ -233,6 +232,7 @@ def train(
     scheduler = ReduceLROnPlateau(
         optimizer, mode="max", factor=0.5, patience=5, min_lr=1e-6
     )
+    # scheduler = CosineAnnealingLR(optimizer,epochs/2,eta_min=0.00001)
     criterion = CrossEntropyLoss(label_smoothing=label_smoothing)
     early_stop = EarlyStop(patience=10, mode="max", min_delta=min_delta)
     scaler = torch.GradScaler() if torch.cuda.is_available() else None
@@ -353,7 +353,7 @@ def train(
         result["val_timer"].append(timer.elapsed)
 
         scheduler.step(val_f1_score)
-
+        # scheduler.step()
         is_improved = early_stop(val_f1_score)
 
         if is_improved:
@@ -447,10 +447,10 @@ def resume_training(name: str):
 
 def run_training(
     name: str,
-    encoder: Literal["AttnEncoder", "AttnResEncoder"] = "AttnEncoder",
-    metric_average: Literal["macro", "weighted", "micro"] = "macro",
-    data_source: Literal["drugbank", "twosides"] = "drugbank",
-    split_type: Literal["random", "cluster"] = "random",
+    encoder: Literal["AttnEncoder", "AttnResEncoder"] | None = None,
+    metric_average: Literal["macro", "weighted", "micro"] | None = None,
+    data_source: Literal["drugbank", "twosides"] | None = None,
+    split_type: Literal["random", "cluster"] | None = None,
 ):
     cfg = None
     try:
@@ -460,10 +460,14 @@ def run_training(
         return
     cfg = {**cfg}
     cfg["name"] = name
-    cfg["encoder"] = encoder
-    cfg["metric_average"] = metric_average
-    cfg["data_source"] = data_source
-    cfg["split_type"] = split_type
+    if encoder is not None:
+        cfg["encoder"] = encoder
+    if metric_average is not None:
+        cfg["metric_average"] = metric_average
+    if data_source is not None:
+        cfg["data_source"] = data_source
+    if split_type is not None:
+        cfg["split_type"] = split_type
     train(**cfg)
 
 

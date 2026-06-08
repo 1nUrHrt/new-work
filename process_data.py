@@ -1,3 +1,4 @@
+import math
 import os.path
 import logging
 from typing import Literal
@@ -6,10 +7,10 @@ from torch.utils.data import Dataset
 from sklearn.model_selection import train_test_split
 import torch
 from rdkit import Chem
-from rdkit.Chem import Descriptors
+from rdkit.Chem import Descriptors, rdMolDescriptors, AllChem, ValenceType
+
 from torch_geometric.data import Data, Batch
 import time
-
 
 logger = logging.getLogger("data")
 
@@ -37,13 +38,11 @@ class DrugDataset(Dataset):
         if mask is not None:
             n_masked = mask.sum() if hasattr(mask, "sum") else len(mask)
             self.drug.loc[mask, "mol"] = self.drug.loc[mask, "smile"].map(
-                lambda s: smiles_to_graph(s, self.add_global_features)
+                lambda s: smiles_to_graph(s)
             )
             logger.info("Graphs computed for %d/%d drugs (masked)", n_masked, n_drugs)
         else:
-            self.drug["mol"] = self.drug["smile"].map(
-                lambda s: smiles_to_graph(s, self.add_global_features)
-            )
+            self.drug["mol"] = self.drug["smile"].map(lambda s: smiles_to_graph(s))
             logger.info("Graphs computed for all %d drugs", n_drugs)
 
     def __len__(self):
@@ -226,9 +225,49 @@ def one_hot_encoding(x, allowable_set):
 def atom_features(atom):
     features = []
 
-    # 1. Atom symbol (10)
+    # 1. Atom symbol (38)
     features += one_hot_encoding(
-        atom.GetSymbol(), ["C", "N", "O", "S", "F", "P", "Cl", "Br", "I", "Other"]
+        atom.GetSymbol(),
+        [
+            "H",
+            "Li",
+            "B",
+            "C",
+            "N",
+            "O",
+            "F",
+            "Na",
+            "Mg",
+            "Al",
+            "Si",
+            "P",
+            "S",
+            "Cl",
+            "K",
+            "Ca",
+            "Ti",
+            "Cr",
+            "Fe",
+            "Co",
+            "Cu",
+            "Zn",
+            "Ga",
+            "As",
+            "Se",
+            "Br",
+            "Sr",
+            "Tc",
+            "Ag",
+            "Sb",
+            "I",
+            "La",
+            "Gd",
+            "Pt",
+            "Au",
+            "Hg",
+            "Bi",
+            "Ra",
+        ],
     )
 
     # 2. Degree (6)
@@ -279,6 +318,28 @@ def atom_features(atom):
 
     # 9. Atomic mass (1)
     features.append(atom.GetMass() / 100.0)
+    # 10. 显式价态 7维
+    features += one_hot_encoding(
+        atom.GetValence(ValenceType.EXPLICIT), [0, 1, 2, 3, 4, 5, 6, 7]
+    )
+    # 11. 隐式价态 7维
+    features += one_hot_encoding(
+        atom.GetValence(ValenceType.IMPLICIT), [0, 1, 2, 3, 4, 5, 6, 7]
+    )
+    # 12. 是否杂原子 1维 (C/H=0，其余=1)
+    symbol = atom.GetSymbol()
+    features.append(0 if symbol in ("C", "H") else 1)
+    # 13. 原子电负性 1维 (归一化)
+    elect = atom.GetNumRadicalElectrons()  # 替换为电负性可自行查表映射
+    features.append(elect / 4.0)
+    # 14. Gasteiger 部分电荷 1维
+    try:
+        charge = float(atom.GetProp("_GasteigerCharge"))
+    except:
+        charge = 0.0
+    if math.isnan(charge) or math.isinf(charge):
+        charge = 0.0
+    features.append(charge)
 
     return features
 
@@ -306,16 +367,24 @@ def bond_features(bond):
         ],
     )
 
+    # 1. 浮点键级 1维
+    features.append(bond.GetBondTypeAsDouble())
+    # 2. 是否芳香键（二次强化）1维
+    features.append(int(bond.GetIsAromatic()))
+    # 3. 共轭环键 1维
+    features.append(int(bond.GetIsConjugated() and bond.IsInRing()))
+
     return features
 
 
-def smiles_to_graph(smiles, add_global_features):
+def smiles_to_graph(smiles):
     mol = Chem.MolFromSmiles(smiles)
     if mol is None:
         raise ValueError(f"Failed to parse SMILES: '{smiles}'")
 
     try:
         mol.UpdatePropertyCache(strict=False)
+        AllChem.ComputeGasteigerCharges(mol)
     except Exception as e:
         raise ValueError(
             f"UpdatePropertyCache failed for SMILES: '{smiles}'. Original error: {e}"
@@ -343,29 +412,54 @@ def smiles_to_graph(smiles, add_global_features):
     edge_index = torch.tensor(edge_index, dtype=torch.long).t().contiguous()
     edge_attr = torch.tensor(edge_attr, dtype=torch.float)
 
-    # Build PyG Data object
-    data = Data(x=x, edge_index=edge_index, edge_attr=edge_attr)
+    # ========== 全局特征 ==========
+    gw = Descriptors.MolWt(mol) / 500.0
+    logp = Descriptors.MolLogP(mol) / 10.0
+    tpsa = Descriptors.TPSA(mol) / 200.0
+    hdonor = Descriptors.NumHDonors(mol) / 10.0
+    haccept = Descriptors.NumHAcceptors(mol) / 10.0
+    rot_bond = Descriptors.NumRotatableBonds(mol) / 20.0
+    ring_num = rdMolDescriptors.CalcNumRings(mol) / 10.0
 
-    # Attach global molecular descriptors
-    if add_global_features:
-        try:
-            global_features = torch.tensor(
-                [
-                    Descriptors.MolWt(mol) / 500.0,
-                    Descriptors.MolLogP(mol) / 10.0,
-                    Descriptors.TPSA(mol) / 200.0,
-                    Descriptors.NumHDonors(mol) / 10.0,
-                    Descriptors.NumHAcceptors(mol) / 10.0,
-                    Descriptors.NumRotatableBonds(mol) / 20.0,
-                    Chem.rdMolDescriptors.CalcNumRings(mol) / 10.0,
-                ],
-                dtype=torch.float,
-            ).unsqueeze(0)
-            data.global_features = global_features
-        except:
-            data.global_features = torch.zeros((1, 7))
+    # 重原子数
+    heavy_atom = Descriptors.HeavyAtomCount(mol) / 50.0
+    # 芳香环数量
+    aromatic_ring = rdMolDescriptors.CalcNumAromaticRings(mol) / 10.0
+    # 脂肪环数量
+    aliphatic_ring = rdMolDescriptors.CalcNumAliphaticRings(mol) / 10.0
+    # 摩尔折射率
+    mr = Descriptors.MolMR(mol) / 100.0
+    # 分子柔性指数
+    frac_rot = Descriptors.NumRotatableBonds(mol) / max(1, mol.GetNumBonds())
+    # 卤素原子总数
+    halogens = (
+        sum(1 for a in mol.GetAtoms() if a.GetSymbol() in ("F", "Cl", "Br", "I")) / 10.0
+    )
+    # 氧原子数、氮原子数
+    o_count = sum(1 for a in mol.GetAtoms() if a.GetSymbol() == "O") / 10.0
+    n_count = sum(1 for a in mol.GetAtoms() if a.GetSymbol() == "N") / 10.0
 
-    return data
+    global_feats = [
+        gw,
+        logp,
+        tpsa,
+        hdonor,
+        haccept,
+        rot_bond,
+        ring_num,
+        heavy_atom,
+        aromatic_ring,
+        aliphatic_ring,
+        mr,
+        frac_rot,
+        halogens,
+        o_count,
+        n_count,
+    ]
+    global_feats = torch.tensor(global_feats, dtype=torch.float)
+    return Data(
+        x=x, edge_index=edge_index, edge_attr=edge_attr, global_features=global_feats
+    )
 
 
 def drug_collate_fn(batch):

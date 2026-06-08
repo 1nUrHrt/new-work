@@ -1,7 +1,7 @@
 import os
 import random
 import pandas as pd
-from sklearn.metrics import accuracy_score, f1_score, roc_auc_score
+from sklearn.metrics import accuracy_score, f1_score, roc_auc_score, confusion_matrix
 from torch.optim import Adam
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.nn import CrossEntropyLoss
@@ -73,7 +73,9 @@ def train_one_epoch(
     avg_train_acc = train_acc / len(itc_loader)
     logger.info(
         "Epoch train done  |  avg_loss=%.5f  avg_acc=%.5f  (%d batches)",
-        avg_train_loss, avg_train_acc, total_batch,
+        avg_train_loss,
+        avg_train_acc,
+        total_batch,
     )
     return avg_train_loss, avg_train_acc
 
@@ -117,17 +119,18 @@ def val_one_epoch(
     avg_loss = val_loss / len(itc_loader)
     acc = accuracy_score(all_labels, all_preds)
     f1 = f1_score(all_labels, all_preds, average=metric_average, zero_division=0)
-    auc = roc_auc_score(all_labels, all_probs, multi_class="ovr", average=metric_average)
+    auc = roc_auc_score(
+        all_labels, all_probs, multi_class="ovr", average=metric_average
+    )
+    cm = confusion_matrix(all_labels, all_preds)
     logger.info(
         "Validation done  |  loss=%.5f  acc=%.5f  f1=%.5f  auc=%.5f",
-        avg_loss, acc, f1, auc,
-    )
-    return (
         avg_loss,
         acc,
         f1,
         auc,
     )
+    return (avg_loss, acc, f1, auc, cm)
 
 
 def train(
@@ -172,7 +175,10 @@ def train(
 
     logger.info(
         "Train config | epochs=%d  device=%s  seed=%d  metric=%s",
-        epochs, device, seed, metric_average,
+        epochs,
+        device,
+        seed,
+        metric_average,
     )
 
     base_dir = os.path.join("./checkpoints", name)
@@ -180,6 +186,7 @@ def train(
     best_path = os.path.join(base_dir, "best.pt")
     history_path = os.path.join(base_dir, "history.pt")
     result_path = os.path.join(base_dir, "result.csv")
+    cm_path = os.path.join(base_dir, "confusion_matrix.csv")
 
     datasets = load_data(data_source, split_type, train_size, seed)
     if len(datasets) != 3:
@@ -214,11 +221,13 @@ def train(
         shuffle=False,
     )
     if encoder == "AttnEncoder":
-        encoder = AttnEncoder(node_dim, edge_dim, h_dim, block_num, dp_r, heads)
+        encoder = AttnEncoder(node_dim, edge_dim, h_dim, block_num, dp_r, heads).to(
+            device
+        )
     else:
         encoder = AttnResEncoder(
             node_dim, edge_dim, h_dim, block_num, dp_r, heads, block_size=block_size
-        )
+        ).to(device)
     classifier = Classifier(h_dim, class_num, dp_r).to(device)
     optimizer = Adam(list(encoder.parameters()) + list(classifier.parameters()), lr=lr)
     scheduler = ReduceLROnPlateau(
@@ -266,11 +275,19 @@ def train(
         logger.info("Resume checkpoint loaded  |  epoch=%d", start_epoch)
 
     if early_stop.early_stop:
-        logger.info("Early stop already triggered at epoch %d/%d — nothing to resume", start_epoch, epochs)
+        logger.info(
+            "Early stop already triggered at epoch %d/%d — nothing to resume",
+            start_epoch,
+            epochs,
+        )
         return
 
     if start_epoch >= epochs:
-        logger.info("Experiment already finished at epoch %d/%d — nothing to resume", start_epoch, epochs)
+        logger.info(
+            "Experiment already finished at epoch %d/%d — nothing to resume",
+            start_epoch,
+            epochs,
+        )
         return
 
     if history is not None and history["result"] is not None:
@@ -278,7 +295,9 @@ def train(
         result = df.to_dict(orient="list")
         total_timer = sum(result["train_timer"]) + sum(result["val_timer"])
 
-    logger.info("Training started  |  epochs=%d  encoder=%s", epochs, type(encoder).__name__)
+    logger.info(
+        "Training started  |  epochs=%d  encoder=%s", epochs, type(encoder).__name__
+    )
     for epoch in range(start_epoch, epochs):
         current_epoch = epoch + 1
         with Timer() as timer:
@@ -294,7 +313,11 @@ def train(
             )
         logger.info(
             "Epoch %d/%d  |  train loss=%.5f  acc=%.5f  (%.2fs)",
-            current_epoch, epochs, train_loss, train_acc, timer.elapsed,
+            current_epoch,
+            epochs,
+            train_loss,
+            train_acc,
+            timer.elapsed,
         )
         total_timer += timer.elapsed
         result["train_loss"].append(train_loss)
@@ -302,7 +325,7 @@ def train(
         result["train_timer"].append(timer.elapsed)
 
         with Timer() as timer:
-            val_loss, val_acc, val_f1_score, val_auc = val_one_epoch(
+            val_loss, val_acc, val_f1_score, val_auc, cm = val_one_epoch(
                 encoder,
                 classifier,
                 drug_loader,
@@ -314,7 +337,13 @@ def train(
 
         logger.info(
             "Epoch %d/%d  |  val  loss=%.5f  acc=%.5f  f1=%.5f  auc=%.5f  (%.2fs)",
-            current_epoch, epochs, val_loss, val_acc, val_f1_score, val_auc, timer.elapsed,
+            current_epoch,
+            epochs,
+            val_loss,
+            val_acc,
+            val_f1_score,
+            val_auc,
+            timer.elapsed,
         )
         total_timer += timer.elapsed
         result["val_loss"].append(val_loss)
@@ -336,14 +365,24 @@ def train(
                 },
                 best_path,
             )
+            cm_df = pd.DataFrame(
+                cm,
+                index=[f"True_{i}" for i in range(class_num)],
+                columns=[f"Pred_{i}" for i in range(class_num)],
+            )
+            cm_df.to_csv(cm_path)
             logger.info(
                 "Epoch %d/%d  |  best model improved → saved best.pt",
-                current_epoch, epochs,
+                current_epoch,
+                epochs,
             )
         else:
             logger.info(
                 "Epoch %d/%d  |  no improvement  (%d/%d patience)",
-                current_epoch, epochs, early_stop.counter, early_stop.patience,
+                current_epoch,
+                epochs,
+                early_stop.counter,
+                early_stop.patience,
             )
 
         checkpoint = {
@@ -368,18 +407,22 @@ def train(
             pd.DataFrame(result).to_csv(result_path, index=False)
             logger.info(
                 "Epoch %d/%d  |  checkpoint saved (history.pt + result.csv)",
-                current_epoch, epochs,
+                current_epoch,
+                epochs,
             )
 
         logger.info(
             "Epoch %d/%d  |  cumulative time: %.2fs",
-            current_epoch, epochs, total_timer,
+            current_epoch,
+            epochs,
+            total_timer,
         )
 
         if early_stop.early_stop:
             logger.info(
                 "Epoch %d/%d  |  early stop triggered",
-                current_epoch, epochs,
+                current_epoch,
+                epochs,
             )
             break
 
@@ -393,9 +436,12 @@ def resume_training(name: str):
         return
 
     cfg = {**cfg}
-    history = torch.load(os.path.join("./checkpoints", name, "history.pt"))
+    history = torch.load(
+        os.path.join("./checkpoints", name, "history.pt"), weights_only=False
+    )
     result = pd.read_csv(os.path.join("./checkpoints", name, "result.csv"))
     history["result"] = result
+    cfg["name"] = name
     train(history=history, **cfg)
 
 

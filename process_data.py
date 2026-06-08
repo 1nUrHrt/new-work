@@ -29,7 +29,11 @@ class DrugDataset(Dataset):
         self.drug = df
         self.add_global_features = add_global_features
         n_drugs = len(df)
-        logger.info("Building molecular graphs for %d drugs  |  add_global=%s", n_drugs, add_global_features)
+        logger.info(
+            "Building molecular graphs for %d drugs  |  add_global=%s",
+            n_drugs,
+            add_global_features,
+        )
         if mask is not None:
             n_masked = mask.sum() if hasattr(mask, "sum") else len(mask)
             self.drug.loc[mask, "mol"] = self.drug.loc[mask, "smile"].map(
@@ -101,7 +105,11 @@ def load_data(
     itc = pd.read_csv(os.path.join(base_dir, csv_name))
     logger.info(
         "Loading data  |  source=%s  split=%s  file=%s  drugs=%d  pairs=%d",
-        data_source, split_type, csv_name, len(all_drug), len(itc),
+        data_source,
+        split_type,
+        csv_name,
+        len(all_drug),
+        len(itc),
     )
     sub_drug = (
         pd.concat([itc["drug1"], itc["drug2"]])
@@ -129,7 +137,9 @@ def load_data(
     valid_itc = valid_itc.reset_index(drop=True)
     logger.info(
         "Train/val split  |  train_pairs=%d  val_pairs=%d  seed=%d",
-        len(train_itc), len(valid_itc), seed,
+        len(train_itc),
+        len(valid_itc),
+        seed,
     )
 
     return (sub_drug_set, InteractionDataset(train_itc), InteractionDataset(valid_itc))
@@ -145,7 +155,10 @@ def split_data(
     os.makedirs(save_dir, exist_ok=True)
     logger.info(
         "Splitting data  |  source=%s  split=%s  train_size=%.2f  seed=%d",
-        data_source, split_type, train_size, seed,
+        data_source,
+        split_type,
+        train_size,
+        seed,
     )
     if data_source == "drugbank":
         if split_type == "random":
@@ -153,7 +166,9 @@ def split_data(
                 pd.read_csv("./data/drugbank.tab", sep="\t"), train_size, seed, save_dir
             )
         else:
-            logger.warning("Split type '%s' not yet implemented for drugbank", split_type)
+            logger.warning(
+                "Split type '%s' not yet implemented for drugbank", split_type
+            )
     else:
         logger.warning("Data source '%s' not yet implemented", data_source)
 
@@ -174,6 +189,7 @@ def split_drugbank_random(df, train_size, seed, save_dir):
     itc = df[["ID1", "ID2", "Y"]]
     itc["ID1"] = itc["ID1"].map(lambda x: id_map.get(x, -1))
     itc["ID2"] = itc["ID2"].map(lambda x: id_map.get(x, -1))
+    itc["Y"] = itc["Y"] - 1
     train, test = train_test_split(
         itc, train_size=train_size, random_state=seed, stratify=itc["Y"]
     )
@@ -193,7 +209,11 @@ def split_drugbank_random(df, train_size, seed, save_dir):
     )
     logger.info(
         "Split complete  |  drugs=%d  total_pairs=%d  train=%d  test=%d  saved to %s",
-        len(drug), len(df), len(train), len(test), save_dir,
+        len(drug),
+        len(df),
+        len(train),
+        len(test),
+        save_dir,
     )
 
 

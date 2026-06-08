@@ -118,16 +118,16 @@ class FFNLayer(nn.Module):
 
 
 class Readout(nn.Module):
-    def __init__(self, in_feature, heads, dp_r):
+    def __init__(self, in_features, heads, dp_r):
         super().__init__()
-        self.in_feature = in_feature
+        self.in_features = in_features
         self.dp_r = dp_r
 
-        assert in_feature % heads == 0
+        assert in_features % heads == 0
         self.heads = heads
-        self.head_dim = in_feature // heads
+        self.head_dim = in_features // heads
 
-        self.attn_net = nn.Linear(in_features=in_feature, out_features=self.heads)
+        self.attn_net = nn.Linear(in_features=in_features, out_features=self.heads)
         self.dropout = nn.Dropout(self.dp_r)
 
     def forward(self, nodes, index):
@@ -143,16 +143,16 @@ class Readout(nn.Module):
 
 
 class ReadoutBlock(nn.Module):
-    def __init__(self, in_feature, heads, dp_r):
+    def __init__(self, in_features, heads, dp_r):
         super().__init__()
-        self.in_features = in_feature
+        self.in_features = in_features
         self.heads = heads
         self.dp_r = dp_r
 
-        self.LN = nn.LayerNorm(in_feature)
-        self.Readout = Readout(in_feature=in_feature, heads=heads, dp_r=dp_r)
-        self.BN = nn.BatchNorm1d(in_feature)
-        self.ffn = FFN(d_model=in_feature, dp_r=dp_r)
+        self.LN = nn.LayerNorm(in_features)
+        self.Readout = Readout(in_features=in_features, heads=heads, dp_r=dp_r)
+        self.BN = nn.BatchNorm1d(in_features)
+        self.ffn = FFN(d_model=in_features, dp_r=dp_r)
         self.dropout = nn.Dropout(self.dp_r)
 
     def forward(self, x, index):
@@ -259,7 +259,7 @@ class AttnResEncoder(nn.Module):
             ]
         )
         self.final_attn_res = AttnResidual(h_dim)
-        self.readout = ReadoutBlock(in_feature=h_dim, dp_r=dp_r, heads=heads)
+        self.readout = ReadoutBlock(in_features=h_dim, dp_r=dp_r, heads=heads)
 
     def forward(self, batch_data):
         nodes, edge_index, edge_attr, index = (
@@ -330,7 +330,7 @@ class AttnEncoder(nn.Module):
             [TransformerLayer(h_dim, dp_r=dp_r, heads=heads) for _ in range(block_num)]
         )
 
-        self.readout = ReadoutBlock(in_feature=h_dim, dp_r=dp_r, heads=heads)
+        self.readout = ReadoutBlock(in_features=h_dim, dp_r=dp_r, heads=heads)
 
     def forward(self, batch_data):
         nodes, edge_index, edge_attr, index = (

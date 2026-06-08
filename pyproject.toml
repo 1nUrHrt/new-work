@@ -1,5 +1,5 @@
 [project]
-name = "thesis"
+name = "NEW"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
@@ -9,7 +9,6 @@ dependencies = [
     "pandas>=2.3.3",
     "rdkit>=2026.3.2",
     "scikit-learn>=1.7.2",
-    "torch>=2.0.0",
     "torch-geometric>=2.7.0",
     "tqdm>=4.67.3",
 ]

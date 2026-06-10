@@ -28,6 +28,6 @@ def heatmap(file_name: str):
 
 
 if __name__ == "__main__":
-    file_names = ["attn_BM3"]
+    file_names = ["attn_gin_tf"]
     for i in file_names:
         heatmap(i)

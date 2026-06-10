@@ -25,7 +25,6 @@ class AttnGIN(nn.Module):
         self.q_proj = nn.Linear(d_model, d_model)
         self.k_proj = nn.Linear(d_model, d_model)
         self.v_proj = nn.Linear(d_model, d_model)
-        self.eps = nn.Parameter(torch.zeros(1), requires_grad=True)
         self.dropout = nn.Dropout(dp_r)
 
     def forward(self, x, edge_index, edge_attr):
@@ -50,7 +49,6 @@ class AttnGIN(nn.Module):
             -1, self.d_model
         )  # E,H,D -> E,M
         out = scatter(weighted_v, edge_index[1], dim=0, reduce="sum")  # N,M
-        out = (1 + self.eps) * x + out  # N,M
         return out
 
 
@@ -73,7 +71,7 @@ class FFN(nn.Module):
         return self.w3(x)
 
 
-class AttnGINTransforemerLayer(nn.Module):
+class AttnGINTransformerLayer(nn.Module):
     def __init__(self, d_model, dp_r, heads):
         super().__init__()
         self.d_model = d_model
@@ -90,9 +88,9 @@ class AttnGINTransforemerLayer(nn.Module):
         self.dropout_f = nn.Dropout(dp_r)
 
     def forward(self, node, edge_index, edge_attr):
-        node = self.LN_n(node)
-        edge_attr = self.LN_e(edge_attr)
-        h = self.attGIN(node, edge_index, edge_attr)
+        h_n = self.LN_n(node)
+        h_e = self.LN_e(edge_attr)
+        h = self.attGIN(h_n, edge_index, h_e)
         h = self.dropout_a(h)
         node = node + h
         h = self.LN_f(node)
@@ -190,7 +188,7 @@ class AttnGINTFEncoder(nn.Module):
 
         self.attn_gin_tfl_list = nn.ModuleList(
             [
-                AttnGINTransforemerLayer(d_model, dp_r=dp_r, heads=heads)
+                AttnGINTransformerLayer(d_model, dp_r=dp_r, heads=heads)
                 for _ in range(block_num)
             ]
         )
@@ -318,17 +316,16 @@ class GIN(nn.Module):
             nn.Linear(d_model, d_model),
             nn.ReLU(),
             nn.Linear(d_model, d_model),
+            nn.Dropout(dp_r)
         )
         self.LN = nn.LayerNorm(d_model)
-        self.gin = GINConv(mlp, train_eps=True)
-        self.act = nn.ReLU()
+        self.gin = GINConv(mlp, train_eps=False)
         self.dropout = nn.Dropout(dp_r)
 
     def forward(self, node, edge_index):
         h = self.LN(node)
-        h = self.gin(node, edge_index)
-        h = self.dropout(self.act(h))
-        node = node + h
+        h = self.gin(h, edge_index)
+        return node + h
 
 
 class GINEncoder(nn.Module):
@@ -359,7 +356,7 @@ class GINEncoder(nn.Module):
         for layer in self.gin_list:
             node = layer(node, edge_index)
         out = torch.cat(
-            [global_mean_pool(node, index), global_max_pool(node, index)], dim=-11
+            [global_mean_pool(node, index), global_max_pool(node, index)], dim=-1
         )
         out = self.readout_proj(out)
         out = self.act(out)

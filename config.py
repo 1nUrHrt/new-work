@@ -21,7 +21,7 @@ class attn_gin_tf_B5(Config):
     itc_batch_size = 20480
     label_smoothing = 0.1
     weight_decay = 5e-4
-
+    num_workers = 0
 
 class attn_gin_tf_B8(Config):
     classifier = "MClassifier"
@@ -43,7 +43,7 @@ class attn_gin_tf_B8(Config):
     itc_batch_size = 20480
     label_smoothing = 0.1
     weight_decay = 5e-4
-
+    num_workers = 0
 
 class attn_gin_tf_B10(Config):
     classifier = "MClassifier"
@@ -65,3 +65,4 @@ class attn_gin_tf_B10(Config):
     itc_batch_size = 20480
     label_smoothing = 0.1
     weight_decay = 5e-4
+    num_workers = 0

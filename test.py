@@ -26,25 +26,23 @@ def _test(config: Config):
     drug_batch_size = config.drug_batch_size
     itc_batch_size = config.itc_batch_size
     label_smoothing = config.label_smoothing
+    num_workers = config.num_workers
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
-    pin_memory = True if torch.cuda.is_available() else False
     drug_set,test_itc= load_data(data_source, split_type, "test", seed=seed)
     drug_loader = DataLoader(
         drug_set,
         collate_fn=drug_collate_fn,
         batch_size=drug_batch_size,
-        pin_memory=pin_memory,
-        num_workers=2,
+        num_workers=num_workers,
         shuffle=False,
     )
     test_loader = DataLoader(
         test_itc,
         collate_fn=itc_collate_fn,
         batch_size=itc_batch_size,
-        pin_memory=pin_memory,
-        num_workers=2,
+        num_workers=num_workers,
         shuffle=False,
     )
     encoder = AttnGINTFEncoder(

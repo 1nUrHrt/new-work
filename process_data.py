@@ -29,10 +29,10 @@ class DrugDataset(InMemoryDataset):
         transform=None,
         pre_transform=None,
     ):
-        self.file_path = f"{type}_drug.csv"
-        self.proc_name = f"{type}.pt"
+        self.file_name = f"{type}_drug.csv"
+        self.proc_name = f"{type}_drug.pt"
         super().__init__(root, transform, pre_transform)
-        self.data, self.slices = torch.load(self.processed_paths[0], weights_only=False)
+        self._data, self.slices = torch.load(self.processed_paths[0], weights_only=False)
 
     @property
     def processed_file_names(self):
@@ -40,44 +40,44 @@ class DrugDataset(InMemoryDataset):
 
     @property
     def raw_file_names(self):
-        return []
+        return [self.file_name]
 
     def download(self):
         pass
 
     def process(self):
-        df = pd.read_csv(os.path.join(self.root, self.file_path))
+        df = pd.read_csv(self.raw_paths[0])
         data_list = []
         for smile in df["smile"]:
             mol = smiles_to_graph(smile)
             data_list.append(mol)
-        self.data, self.slices = self.collate(data_list)
-        torch.save((self.data, self.slices), self.processed_paths[0])
+        self._data, self.slices = self.collate(data_list)
+        torch.save((self._data, self.slices), self.processed_paths[0])
 
 
 class InteractionDataset(Dataset):
     def __init__(self, root, type: Literal["train", "val", "test"] = "train"):
         super().__init__()
-        self.itc = pd.read_csv(os.path.join(root, f"{type}_itc.csv"))
+        cache_key = f"{type}_itc.pt"
+        cache_file_path = os.path.join(root, "processed", cache_key)
+        if not os.path.exists(cache_file_path):
+            os.makedirs(os.path.join(root, "processed"), exist_ok=True)
+            df = pd.read_csv(os.path.join(root, "raw", f"{type}_itc.csv"))
+            drug1 = torch.tensor(df["drug1"].values, dtype=torch.long)
+            drug2 = torch.tensor(df["drug2"].values, dtype=torch.long)
+            label = torch.tensor(df["label"].values, dtype=torch.long)
+            torch.save((drug1, drug2, label), cache_file_path)
+
+        drug1, drug2, label = torch.load(cache_file_path, weights_only=False)
+        self.drug1 = drug1.share_memory_()
+        self.drug2 = drug2.share_memory_()
+        self.label = label.share_memory_()
 
     def __len__(self):
-        return len(self.itc)
-
-    # @property
-    # def scenario(self):
-    #     return self.itc["scenario"].drop_duplicates(keep="first").reset_index(drop=True)
-
-    # @property
-    # def scenario_label(self):
-    #     return self.itc["scenario"]
+        return len(self.label)
 
     def __getitem__(self, idx):
-
-        return self.itc.loc[idx]
-
-    @property
-    def label(self):
-        return self.itc["label"]
+        return self.drug1[idx], self.drug2[idx], self.label[idx]
 
 
 def _load_data(root: str, type: Literal["train", "val", "test"] = "train"):
@@ -90,7 +90,9 @@ def load_data(
     type: Literal["train", "val", "test"] = "train",
     seed=42,
 ):
-    base_dir = os.path.join("./split_data", data_source + "-" + split_type + "-" + str(seed))
+    base_dir = os.path.join(
+        "./split_data", data_source + "-" + split_type + "-" + str(seed)
+    )
     return _load_data(base_dir, type)
 
 
@@ -100,7 +102,9 @@ def split_data(
     train_size=0.8,
     seed=42,
 ):
-    save_dir = os.path.join("./split_data", data_source + "-" + split_type + "-" + str(seed))
+    save_dir = os.path.join(
+        "./split_data", data_source + "-" + split_type + "-" + str(seed), "raw"
+    )
     os.makedirs(save_dir, exist_ok=True)
     if data_source == "drugbank":
         if split_type == "random":
@@ -149,7 +153,7 @@ def _split_drugbank_random(df: pd.DataFrame, train_size, seed, save_dir):
     test["ID1"] = test["ID1"].map(test_map)
     test["ID2"] = test["ID2"].map(test_map)
     test_drug = test_drug.map(id_map)
-    os.makedirs(save_dir,exist_ok=True)
+    os.makedirs(save_dir, exist_ok=True)
     train_drug.name = "smile"
     train_drug.to_csv(
         os.path.join(save_dir, "train_drug.csv"),
@@ -413,14 +417,11 @@ def drug_collate_fn(batch):
 
 
 def itc_collate_fn(batch):
-    drug1 = []
-    drug2 = []
-    label = []
-    for data in batch:
-        drug1.append(data["drug1"])
-        drug2.append(data["drug2"])
-        label.append(data["label"])
-    return torch.tensor(drug1), torch.tensor(drug2), torch.tensor(label)
+    drug1, drug2, label = zip(*batch)
+    return torch.stack(drug1), torch.stack(drug2), torch.stack(label)
 
 
 __all__ = ["Timer", "load_data", "split_data", "itc_collate_fn", "drug_collate_fn"]
+
+if __name__ == "__main__":
+    load_data("drugbank", "random", "train", 42)

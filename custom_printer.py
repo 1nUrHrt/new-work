@@ -1,16 +1,19 @@
 import os
 import re
+from time import sleep
 from typing import List, Dict
 
 
 class ptr_color:
+    notice: str = "\033[38;2;150;150;255m"
+    flag: str = "\033[38;2;0;255;0m"
     info: str = "\033[38;2;255;255;255m"
     warning: str = "\033[38;2;255;165;0m"
     error: str = "\033[38;2;255;0;0m"
 
     pending: str = "\033[38;2;255;255;150m"
+    training: str = "\033[38;2;150;255;150m"
     validating: str = "\033[38;2;0;255;255m"
-    training: str = "\033[38;2;0;255;0m"
 
     done: str = "\033[38;2;128;128;128m"
 
@@ -171,11 +174,11 @@ train_ptr = printer_template()
 train_ptr.add_template(" " * 150 + "\n")
 train_ptr.add_template(" " * 150 + "\n")
 train_ptr.add_template("-" * 150 + "\n")
-train_ptr.add_template("{name}{epochs}{device}{lr}" + "\n")
+train_ptr.add_template("{name}{epochs}{encoder}{classifier}{lr}" + "\n")
 train_ptr.add_template("-" * 150 + "\n")
-train_ptr.add_template("{encoder}{classifier}{data_source}{split_type}{seed}" + "\n")
+train_ptr.add_template("{data_source}{split_type}{seed}{device}{resume}" + "\n")
 train_ptr.add_template("-" * 150 + "\n")
-train_ptr.add_template("{epoch}{current_lr}{resume}{early_stop}{state}" + "\n")
+train_ptr.add_template("{epoch}{current_lr}{elapsed}{early_stop}{state}" + "\n")
 train_ptr.add_template("-" * 150 + "\n")
 
 
@@ -194,18 +197,21 @@ train_ptr.add_template("-" * 150 + "\n")
 
 train_ptr.set_slot_t("name", "Name:{value}", 30, ptr_color.info)
 train_ptr.set_slot_t("epochs", "Total Epoch:{value}", 30, ptr_color.info)
-train_ptr.set_slot_t("device", "Device:{value}", 30, ptr_color.info)
-train_ptr.set_slot_t("lr", "LR:{value}", 30, ptr_color.info)
-
 train_ptr.set_slot_t("encoder", "Encoder:{value}", 30, ptr_color.info)
 train_ptr.set_slot_t("classifier", "Classifier:{value}", 30, ptr_color.info)
+train_ptr.set_slot_t("lr", "LR:{value}", 30, ptr_color.info)
+
+
 train_ptr.set_slot_t("data_source", "Data Source:{value}", 30, ptr_color.info)
 train_ptr.set_slot_t("split_type", "Split Type:{value}", 30, ptr_color.info)
 train_ptr.set_slot_t("seed", "Seed:{value}", 30, ptr_color.info)
+train_ptr.set_slot_t("device", "Device:{value}", 30, ptr_color.info)
+train_ptr.set_slot_t("resume", "Resume:{value}", 30, ptr_color.info)
+
 
 train_ptr.set_slot_t("epoch", "Epoch:{value}", 30, ptr_color.info)
 train_ptr.set_slot_t("current_lr", "Current LR:{value}", 30, ptr_color.info)
-train_ptr.set_slot_t("resume", "Resume:{value}", 30, ptr_color.info)
+train_ptr.set_slot_t("elapsed", "Elapsed:{value} s", 30, ptr_color.info)
 train_ptr.set_slot_t("early_stop", "Early Stop:{value}", 30, ptr_color.info)
 train_ptr.set_slot_t("state", "State:{value}", 30, ptr_color.pending)
 
@@ -230,4 +236,5 @@ train_ptr.set_slot("m_4", "", 120)
 train_ptr.set_slot("m_5", "", 120)
 
 train_ptr.add_scroll("info", ["m_1", "m_2", "m_3", "m_4", "m_5"])
+
 

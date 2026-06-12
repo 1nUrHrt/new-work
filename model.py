@@ -380,6 +380,7 @@ class Config:
         "itc_batch_size",
         "label_smoothing",
         "weight_decay",
+        "num_workers",
     }
     classifier: ClassVar[Literal["BClassifier", "MClassifier"]]
     data_source: ClassVar[Literal["drugbank", "twosides"]]
@@ -400,6 +401,7 @@ class Config:
     itc_batch_size: ClassVar[int]
     label_smoothing: ClassVar[float]
     weight_decay: ClassVar[float]
+    num_workers: ClassVar[int]
 
     @classmethod
     def __init_subclass__(cls):

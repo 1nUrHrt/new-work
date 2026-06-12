@@ -382,6 +382,7 @@ class Config:
         "weight_decay",
         "num_workers",
     }
+    __name__: str
     classifier: ClassVar[Literal["BClassifier", "MClassifier"]]
     data_source: ClassVar[Literal["drugbank", "twosides"]]
     split_type: ClassVar[Literal["random", "cluster"]]

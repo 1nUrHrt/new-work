@@ -9,8 +9,9 @@ from torch.nn import CrossEntropyLoss
 from sklearn.metrics import accuracy_score, f1_score, roc_auc_score
 from config import Config
 
+
 def _test(config: Config):
-    name = type(config).__name__
+    name = config.__name__
     classifier_type = config.classifier
     data_source = config.data_source
     split_type = config.split_type
@@ -30,7 +31,7 @@ def _test(config: Config):
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
-    drug_set,test_itc= load_data(data_source, split_type, "test", seed=seed)
+    drug_set, test_itc = load_data(data_source, split_type, "test", seed=seed)
     drug_loader = DataLoader(
         drug_set,
         collate_fn=drug_collate_fn,

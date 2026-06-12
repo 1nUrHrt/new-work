@@ -118,7 +118,7 @@ def _train(
     config: Config,
     history=None,
 ):
-    name = type(config).__name__
+    name = config.__name__
     clssifier_type = config.classifier
     data_source = config.data_source
     split_type = config.split_type

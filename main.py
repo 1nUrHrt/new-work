@@ -1,5 +1,4 @@
 import argparse
-import logger_config
 from process_data import split_data
 from test import run_test
 from train import run_training, resume_training,train_all

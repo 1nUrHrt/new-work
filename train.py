@@ -452,4 +452,9 @@ def run_training(config_class_name: str):
     _train(cfg)
 
 
-__all__ = ["resume_training", "run_training"]
+def run_all(configs: list[str]):
+    for cfg in configs:
+        run_training(cfg)
+
+
+__all__ = ["resume_training", "run_training", "run_all"]

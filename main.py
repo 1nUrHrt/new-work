@@ -1,7 +1,7 @@
 import argparse
 from process_data import split_data
 from test import run_test
-from train import run_training, resume_training
+from train import run_training, resume_training, run_all
 
 
 def main():
@@ -13,6 +13,12 @@ def main():
     # ---- train ----
     p_train = sub.add_parser("train", help="Start a new training run")
     p_train.add_argument("config", help="Config class name in config.py")
+
+    # ---- train all----
+    p_train_all = sub.add_parser("train_all", help="Queue a training run")
+    p_train_all.add_argument(
+        "configs", nargs="+", help="Config class name(s) in config.py"
+    )
 
     # ---- resume ----
     p_resume = sub.add_parser(
@@ -58,6 +64,8 @@ def main():
 
     if args.command == "train":
         run_training(config_class_name=args.config)
+    elif args.command == "train_all":
+        run_training(args.configs)
     elif args.command == "resume":
         resume_training(config_class_name=args.config)
     elif args.command == "test":

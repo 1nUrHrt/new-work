@@ -1,7 +1,8 @@
 import argparse
 from process_data import split_data
-from test import run_test
-from train import run_training, resume_training, run_all
+from test import run_testing,test_all
+from train import run_training, resume_training, train_all
+
 
 
 def main():
@@ -29,6 +30,15 @@ def main():
     # ---- test ----
     p_test = sub.add_parser("test", help="Evaluate a trained model on test set")
     p_test.add_argument("config", help="Config class name in config.py")
+
+
+    # ---- test all----
+    p_test_all = sub.add_parser("test_all", help="Queue a testing run")
+    p_test_all.add_argument(
+        "configs", nargs="+", help="Config class name(s) in config.py"
+    )
+
+
 
     # ---- split ----
     p_split = sub.add_parser("split", help="Split raw data into train/test")
@@ -65,11 +75,13 @@ def main():
     if args.command == "train":
         run_training(config_class_name=args.config)
     elif args.command == "train_all":
-        run_all(args.configs)
+        train_all(args.configs)
     elif args.command == "resume":
         resume_training(config_class_name=args.config)
     elif args.command == "test":
-        run_test(config_class_name=args.config)
+        run_testing(config_class_name=args.config)
+    elif args.command == "test_all":
+        test_all(args.configs)
     elif args.command == "split":
         split_data(
             data_source=args.data_source,

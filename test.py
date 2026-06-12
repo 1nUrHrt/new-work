@@ -101,8 +101,13 @@ def _test(config: Config):
     pd.DataFrame(evaluate).to_csv(evaluate_path, index=False)
 
 
-def run_test(config_class_name: str):
+def run_testing(config_class_name: str):
     _test(getattr(config, config_class_name))
 
 
-__all__ = ["run_test"]
+def test_all(configs: list[str]):
+    for cfg in configs:
+        run_testing(cfg)
+
+
+__all__ = ["run_testing","test_all"]

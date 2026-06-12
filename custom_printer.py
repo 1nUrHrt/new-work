@@ -193,6 +193,8 @@ train_ptr.add_template("{row_1}{train}" + "\n")
 train_ptr.add_template("-" * 150 + "\n")
 train_ptr.add_template("{row_2}{val}" + "\n")
 train_ptr.add_template("-" * 150 + "\n")
+train_ptr.add_template("{row_3}{best}" + "\n")
+train_ptr.add_template("-" * 150 + "\n")
 
 
 train_ptr.set_slot_t("name", "Name:{value}", 30, ptr_color.info)
@@ -218,10 +220,11 @@ train_ptr.set_slot_t("state", "State:{value}", 30, ptr_color.pending)
 
 train_ptr.set_slot("row_1", "Train", 30, ptr_color.training)
 train_ptr.set_slot("row_2", "Last Epoch Val", 30, ptr_color.validating)
+train_ptr.set_slot("row_3", "Last Best Val", 30, ptr_color.validating)
 
 train_ptr.set_slot("train", "Train", 120, ptr_color.training)
 train_ptr.set_slot("val", "Last Epoch Val", 120, ptr_color.validating)
-
+train_ptr.set_slot("best", "Last Best Val", 120, ptr_color.pending)
 
 train_ptr.set_slot("i_1", "", 30)
 train_ptr.set_slot("i_2", "", 30)
@@ -236,5 +239,3 @@ train_ptr.set_slot("m_4", "", 120)
 train_ptr.set_slot("m_5", "", 120)
 
 train_ptr.add_scroll("info", ["m_1", "m_2", "m_3", "m_4", "m_5"])
-
-

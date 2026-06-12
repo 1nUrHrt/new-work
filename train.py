@@ -379,6 +379,11 @@ def _train(
                 f"[{current_epoch}/{epochs}] Model performance improved",
                 ptr_color.notice,
             )
+            ptr.write(
+                "best",
+                f"[{current_epoch}/{epochs}] loss={val_loss:.5f}  acc={val_acc:.5f}  f1_score={val_f1_score:.5f}  auc={val_auc:.5f}  ({timer.elapsed:.5f} s)",
+                ptr_color.pending,
+            )
             ptr.scl_flush(
                 "info",
                 f"[{current_epoch}/{epochs}] best model improved → saved best.pt and confusion_matrix.csv",
@@ -418,7 +423,7 @@ def _train(
             pd.DataFrame(result).to_csv(result_path, index=False)
             ptr.scl_flush(
                 "info",
-                "[{current_epoch}/{epochs}]  checkpoint saved (history.pt + result.csv)",
+                f"[{current_epoch}/{epochs}]  checkpoint saved (history.pt + result.csv)",
                 ptr_color.notice,
             )
 
@@ -452,9 +457,9 @@ def run_training(config_class_name: str):
     _train(cfg)
 
 
-def run_all(configs: list[str]):
+def train_all(configs: list[str]):
     for cfg in configs:
         run_training(cfg)
 
 
-__all__ = ["resume_training", "run_training", "run_all"]
+__all__ = ["resume_training", "run_training", "train_all"]

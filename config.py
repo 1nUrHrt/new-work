@@ -1,7 +1,7 @@
 from model import Config
 
 
-class attn_gin_tf_B5_g(Config):
+class attn_gin_tf_B5_g_f(Config):
     classifier = "MClassifier"
     data_source = "drugbank"
     split_type = "random"
@@ -24,7 +24,7 @@ class attn_gin_tf_B5_g(Config):
     num_workers = 0
 
 
-class attn_gin_tf_B8_g(Config):
+class attn_gin_tf_B8_g_f(Config):
     classifier = "MClassifier"
     data_source = "drugbank"
     split_type = "random"
@@ -47,7 +47,7 @@ class attn_gin_tf_B8_g(Config):
     num_workers = 0
 
 
-class attn_gin_tf_B10_g(Config):
+class attn_gin_tf_B10_g_f(Config):
     classifier = "MClassifier"
     data_source = "drugbank"
     split_type = "random"
